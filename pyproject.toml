@@ -1,0 +1,66 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "cedar-python"
+requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Rust",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dynamic = ["version"]
+description = "Python bindings for Cedar, the open-source policy language for access control."
+readme = "README.md"
+license = {text = "Apache-2.0"}
+keywords = ["cedar", "authorization", "access-control", "policy", "security", "iam"]
+authors = [
+    {name = "Sondera AI"}
+]
+dependencies = [
+    "click>=8.3.1",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.9.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/sondera-ai/cedar-python"
+Repository = "https://github.com/sondera-ai/cedar-python"
+Issues = "https://github.com/sondera-ai/cedar-python/issues"
+
+[project.optional-dependencies]
+mcp = ["fastmcp>=2.8.1"]
+
+[project.scripts]
+cedar = "cedar.__main__:cli"
+
+[tool.maturin]
+module-name = "cedar"
+environment = { PATH = "$HOME/.cargo/bin:$PATH" }
+
+[dependency-groups]
+dev = [
+    "maturin>=1.10.2",
+    "pyright>=1.1.400",
+    "pytest>=9.0.2",
+    "ruff>=0.14.11",
+]
+mcp = [
+    "fastmcp>=2.8.1",
+]
+
+[tool.pyright]
+include = ["cedar"]
+exclude = ["tests"]
+typeCheckingMode = "basic"
+pythonVersion = "3.12"
