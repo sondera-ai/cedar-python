@@ -25,12 +25,12 @@ readme = "README.md"
 license = {text = "Apache-2.0"}
 keywords = ["cedar", "authorization", "access-control", "policy", "security", "iam"]
 authors = [
-    {name = "Sondera AI"}
+    {name = "Sondera"}
 ]
 dependencies = [
-    "click>=8.3.1",
-    "pydantic>=2.12.5",
-    "pydantic-settings>=2.9.1",
+    "click>=8.0,<9",
+    "pydantic>=2.4,<3",
+    "pydantic-settings>=2.0,<3",
 ]
 
 [project.urls]
@@ -39,7 +39,7 @@ Repository = "https://github.com/sondera-ai/cedar-python"
 Issues = "https://github.com/sondera-ai/cedar-python/issues"
 
 [project.optional-dependencies]
-mcp = ["fastmcp>=2.8.1"]
+mcp = ["fastmcp>=2.0,<3"]
 
 [project.scripts]
 cedar = "cedar.__main__:cli"
@@ -54,9 +54,6 @@ dev = [
     "pyright>=1.1.400",
     "pytest>=9.0.2",
     "ruff>=0.14.11",
-]
-mcp = [
-    "fastmcp>=2.8.1",
 ]
 
 [tool.pyright]
