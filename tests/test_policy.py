@@ -190,6 +190,14 @@ class TestSchema:
         assert "User" in schema.principals()
         assert "Document" in schema.resources()
 
+    def test_str(self):
+        """Test Schema __str__ returns Cedar schema syntax."""
+        schema = Schema.from_json(BASIC_SCHEMA_JSON)
+        str_output = str(schema)
+        assert isinstance(str_output, str)
+        assert "User" in str_output
+        assert "Document" in str_output
+
     def test_with_namespace(self):
         """Test schema with namespace."""
         schema = Schema.from_json("""

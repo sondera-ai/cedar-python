@@ -7,7 +7,6 @@ mod authorizer;
 mod entity;
 mod expression;
 mod policy;
-
 use pyo3::prelude::*;
 
 // Python module registration

@@ -237,6 +237,64 @@ impl PyPolicySetIterator {
     }
 }
 
+/// Represents a Cedar Schema Fragment
+#[pyclass(name = "SchemaFragment")]
+pub struct PySchemaFragment {
+    pub(crate) inner: SchemaFragment,
+}
+
+#[pymethods]
+impl PySchemaFragment {
+    /// Create a schema fragment from JSON
+    #[staticmethod]
+    fn from_json(json: &str) -> PyResult<Self> {
+        let fragment = SchemaFragment::from_json_str(json)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(Self { inner: fragment })
+    }
+
+    /// Create a schema fragment from Cedar schema syntax
+    #[staticmethod]
+    fn from_cedarschema(text: &str) -> PyResult<Self> {
+        let (fragment, _warnings) = SchemaFragment::from_cedarschema_str(text)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(Self { inner: fragment })
+    }
+
+    /// Convert to JSON representation
+    fn to_json(&self) -> PyResult<String> {
+        self.inner
+            .to_json_string()
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// Convert to Cedar schema syntax
+    fn to_cedarschema(&self) -> PyResult<String> {
+        self.inner
+            .to_cedarschema()
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// Get the namespaces defined in this schema fragment
+    fn namespaces(&self) -> Vec<String> {
+        self.inner
+            .namespaces()
+            .map(|ns| match ns {
+                Some(namespace) => namespace.to_string(),
+                None => String::new(),
+            })
+            .collect()
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        self.to_cedarschema()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("SchemaFragment(namespaces={})", self.namespaces().len())
+    }
+}
+
 /// Represents a Cedar schema
 #[pyclass(name = "Schema")]
 pub struct PySchema {
@@ -248,6 +306,26 @@ pub struct PySchema {
 #[pymethods]
 impl PySchema {
     /// Create a schema from JSON
+    /// Create a schema from one or more schema fragments
+    #[staticmethod]
+    fn from_schema_fragments(
+        py: Python<'_>,
+        fragments: Vec<Py<PySchemaFragment>>,
+    ) -> PyResult<Self> {
+        let inner_fragments: Vec<SchemaFragment> = fragments
+            .iter()
+            .map(|f| f.borrow(py).inner.clone())
+            .collect();
+
+        let schema = Schema::from_schema_fragments(inner_fragments)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+
+        Ok(Self {
+            inner: schema,
+            source_json: None,
+        })
+    }
+
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
         let schema = Schema::from_json_str(json)
@@ -350,6 +428,10 @@ impl PySchema {
             errors,
             warnings,
         }
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        self.to_cedarschema()
     }
 
     fn __repr__(&self) -> String {
@@ -527,6 +609,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPolicy>()?;
     m.add_class::<PyPolicySet>()?;
     m.add_class::<PyPolicySetIterator>()?;
+    m.add_class::<PySchemaFragment>()?;
     m.add_class::<PySchema>()?;
     m.add_class::<PyValidationError>()?;
     m.add_class::<PyValidationWarning>()?;

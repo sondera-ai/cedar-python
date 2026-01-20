@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2025-01-19
+
+### Added
+- `SchemaFragment` class for modular schema composition
+- `Schema.from_schema_fragments()` method to combine multiple schema fragments into a complete schema
+- `CedarSchema.into_schema()` method for converting Pydantic schema models to Rust `Schema`
+- `CedarSchema.into_schema_fragment()` method for converting Pydantic schema models to `SchemaFragment`
+
+## [0.1.1] - 2025-01-18
+
+### Changed
+- Package dependency version constraints for better compatibility
+- Updated macOS build target to latest version
+
+### Fixed
+- CODEOWNERS file added for better repository maintenance
+
 ## [0.1.0] - 2025-01-11
 
 ### Added

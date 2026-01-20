@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from cedar import Schema
+from cedar import Schema, SchemaFragment
 from cedar.schema import (
     Action,
     ActionMember,
@@ -363,6 +363,185 @@ class TestCedarSchema:
 
         view_action = schema["PhotoFlash"].actions["viewPhoto"]
         assert "User" in view_action.appliesTo.principalTypes
+
+    def test_into_schema(self):
+        """Test converting CedarSchema to Rust Schema."""
+        pydantic_schema = CedarSchema.model_validate(
+            {
+                "": {
+                    "entityTypes": {"User": {}, "Document": {}},
+                    "actions": {
+                        "read": {
+                            "appliesTo": {
+                                "principalTypes": ["User"],
+                                "resourceTypes": ["Document"],
+                            }
+                        }
+                    },
+                }
+            }
+        )
+
+        # Convert to Rust Schema
+        rust_schema = pydantic_schema.into_schema()
+
+        # Verify it's a valid Schema instance
+        assert isinstance(rust_schema, Schema)
+        assert has_entity_type(rust_schema, "User")
+        assert has_entity_type(rust_schema, "Document")
+        assert any("read" in a for a in rust_schema.actions())
+
+    def test_into_schema_with_attributes(self):
+        """Test into_schema preserves entity attributes."""
+        pydantic_schema = CedarSchema.model_validate(
+            {
+                "": {
+                    "entityTypes": {
+                        "User": {
+                            "shape": {
+                                "type": "Record",
+                                "attributes": {
+                                    "email": {"type": "String"},
+                                    "age": {"type": "Long"},
+                                },
+                            }
+                        }
+                    },
+                    "actions": {},
+                }
+            }
+        )
+
+        rust_schema = pydantic_schema.into_schema()
+
+        # Verify attributes are preserved in round-trip
+        cedar_str = rust_schema.to_cedarschema()
+        assert "email" in cedar_str
+        assert "age" in cedar_str
+
+    def test_into_schema_fragment(self):
+        """Test converting CedarSchema to SchemaFragment."""
+        pydantic_schema = CedarSchema.model_validate(
+            {
+                "": {
+                    "entityTypes": {"User": {}, "Resource": {}},
+                    "actions": {
+                        "view": {
+                            "appliesTo": {
+                                "principalTypes": ["User"],
+                                "resourceTypes": ["Resource"],
+                            }
+                        }
+                    },
+                }
+            }
+        )
+
+        # Convert to SchemaFragment
+        fragment = pydantic_schema.into_schema_fragment()
+
+        # Verify it's a valid SchemaFragment instance
+        assert isinstance(fragment, SchemaFragment)
+        assert "" in fragment.namespaces()
+
+        # Verify content is preserved
+        cedar_str = fragment.to_cedarschema()
+        assert "User" in cedar_str
+        assert "Resource" in cedar_str
+        assert "view" in cedar_str
+
+    def test_into_schema_fragment_with_namespace(self):
+        """Test into_schema_fragment with named namespace."""
+        pydantic_schema = CedarSchema.model_validate(
+            {
+                "MyApp": {
+                    "entityTypes": {"User": {}, "Document": {}},
+                    "actions": {
+                        "read": {
+                            "appliesTo": {
+                                "principalTypes": ["User"],
+                                "resourceTypes": ["Document"],
+                            }
+                        }
+                    },
+                }
+            }
+        )
+
+        fragment = pydantic_schema.into_schema_fragment()
+
+        # Verify namespace is preserved
+        namespaces = fragment.namespaces()
+        assert "MyApp" in namespaces
+
+        # Verify it can be used to create a Schema
+        schema = Schema.from_schema_fragments([fragment])
+        assert isinstance(schema, Schema)
+
+    def test_into_schema_fragment_to_schema_roundtrip(self):
+        """Test that into_schema_fragment can be combined into a Schema."""
+        pydantic_schema1 = CedarSchema.model_validate(
+            {
+                "App1": {
+                    "entityTypes": {"User": {}},
+                    "actions": {},
+                }
+            }
+        )
+
+        pydantic_schema2 = CedarSchema.model_validate(
+            {
+                "App2": {
+                    "entityTypes": {"Document": {}},
+                    "actions": {
+                        "read": {
+                            "appliesTo": {
+                                "principalTypes": ["App1::User"],
+                                "resourceTypes": ["Document"],
+                            }
+                        }
+                    },
+                }
+            }
+        )
+
+        # Third fragment with the same namespace as fragment1 (App1)
+        pydantic_schema3 = CedarSchema.model_validate(
+            {
+                "App1": {
+                    "entityTypes": {"Admin": {}},
+                    "actions": {
+                        "manage": {
+                            "appliesTo": {
+                                "principalTypes": ["Admin"],
+                                "resourceTypes": ["App2::Document"],
+                            }
+                        }
+                    },
+                }
+            }
+        )
+
+        # Convert to fragments
+        fragment1 = pydantic_schema1.into_schema_fragment()
+        fragment2 = pydantic_schema2.into_schema_fragment()
+        fragment3 = pydantic_schema3.into_schema_fragment()
+
+        # Combine all three fragments into a single Schema
+        combined_schema = Schema.from_schema_fragments(
+            [fragment1, fragment2, fragment3]
+        )
+
+        # Verify all entity types are present
+        entity_types = [str(t) for t in combined_schema.entity_types()]
+        assert any("User" in t for t in entity_types)
+        assert any("Admin" in t for t in entity_types)
+        assert any("Document" in t for t in entity_types)
+
+        # Verify actions from both App1 fragments are present
+        actions = [str(a) for a in combined_schema.actions()]
+        assert any("read" in a for a in actions)
+        assert any("manage" in a for a in actions)
 
 
 class TestDictToCedarType:
@@ -785,3 +964,352 @@ class TestPydanticRustInterop:
         assert "roles" in cedar_str
         assert "title" in cedar_str
         assert "public" in cedar_str
+
+
+class TestSchemaFragment:
+    """Tests for SchemaFragment class."""
+
+    def test_from_json_basic(self):
+        """Create a SchemaFragment from JSON."""
+        fragment_json = json.dumps(
+            {
+                "": {
+                    "entityTypes": {"User": {}, "Document": {}},
+                    "actions": {
+                        "read": {
+                            "appliesTo": {
+                                "principalTypes": ["User"],
+                                "resourceTypes": ["Document"],
+                            }
+                        }
+                    },
+                }
+            }
+        )
+        fragment = SchemaFragment.from_json(fragment_json)
+        assert fragment is not None
+        assert "" in fragment.namespaces()
+
+    def test_from_cedarschema(self):
+        """Create a SchemaFragment from Cedar schema syntax."""
+        cedarschema_text = """
+        entity User;
+        entity Document;
+        action read appliesTo {
+            principal: [User],
+            resource: [Document]
+        };
+        """
+        fragment = SchemaFragment.from_cedarschema(cedarschema_text)
+        assert fragment is not None
+        assert "" in fragment.namespaces()
+
+    def test_to_json(self):
+        """Convert SchemaFragment to JSON."""
+        fragment_json = json.dumps(
+            {
+                "": {
+                    "entityTypes": {"User": {}},
+                    "actions": {"view": {}},
+                }
+            }
+        )
+        fragment = SchemaFragment.from_json(fragment_json)
+        result_json = fragment.to_json()
+        assert isinstance(result_json, str)
+        # Should be valid JSON
+        parsed = json.loads(result_json)
+        assert isinstance(parsed, dict)
+
+    def test_to_cedarschema(self):
+        """Convert SchemaFragment to Cedar schema syntax."""
+        fragment_json = json.dumps(
+            {
+                "": {
+                    "entityTypes": {"User": {}, "Document": {}},
+                    "actions": {
+                        "read": {
+                            "appliesTo": {
+                                "principalTypes": ["User"],
+                                "resourceTypes": ["Document"],
+                            }
+                        }
+                    },
+                }
+            }
+        )
+        fragment = SchemaFragment.from_json(fragment_json)
+        cedar_str = fragment.to_cedarschema()
+        assert isinstance(cedar_str, str)
+        assert "User" in cedar_str
+        assert "Document" in cedar_str
+        assert "read" in cedar_str
+
+    def test_namespaces_empty(self):
+        """SchemaFragment with empty namespace."""
+        fragment_json = json.dumps(
+            {
+                "": {
+                    "entityTypes": {"User": {}},
+                    "actions": {"view": {}},
+                }
+            }
+        )
+        fragment = SchemaFragment.from_json(fragment_json)
+        namespaces = fragment.namespaces()
+        assert isinstance(namespaces, list)
+        assert "" in namespaces
+
+    def test_namespaces_named(self):
+        """SchemaFragment with named namespace."""
+        fragment_json = json.dumps(
+            {
+                "MyApp": {
+                    "entityTypes": {"User": {}},
+                    "actions": {"view": {}},
+                }
+            }
+        )
+        fragment = SchemaFragment.from_json(fragment_json)
+        namespaces = fragment.namespaces()
+        assert isinstance(namespaces, list)
+        assert "MyApp" in namespaces
+
+    def test_str(self):
+        """SchemaFragment __str__ returns Cedar schema syntax."""
+        fragment_json = json.dumps(
+            {
+                "": {
+                    "entityTypes": {"User": {}, "Document": {}},
+                    "actions": {
+                        "read": {
+                            "appliesTo": {
+                                "principalTypes": ["User"],
+                                "resourceTypes": ["Document"],
+                            }
+                        }
+                    },
+                }
+            }
+        )
+        fragment = SchemaFragment.from_json(fragment_json)
+        str_output = str(fragment)
+        assert isinstance(str_output, str)
+        assert "User" in str_output
+        assert "Document" in str_output
+        assert "read" in str_output
+
+    def test_repr(self):
+        """SchemaFragment has a useful repr."""
+        fragment_json = json.dumps(
+            {
+                "": {
+                    "entityTypes": {"User": {}},
+                    "actions": {"view": {}},
+                }
+            }
+        )
+        fragment = SchemaFragment.from_json(fragment_json)
+        repr_str = repr(fragment)
+        assert "SchemaFragment" in repr_str
+        assert "namespaces" in repr_str
+
+    def test_round_trip_json(self):
+        """Round-trip JSON serialization preserves schema."""
+        original_json = json.dumps(
+            {
+                "": {
+                    "entityTypes": {
+                        "User": {
+                            "shape": {
+                                "type": "Record",
+                                "attributes": {"name": {"type": "String"}},
+                            }
+                        }
+                    },
+                    "actions": {
+                        "read": {
+                            "appliesTo": {
+                                "principalTypes": ["User"],
+                                "resourceTypes": ["User"],
+                            }
+                        }
+                    },
+                }
+            }
+        )
+        fragment = SchemaFragment.from_json(original_json)
+        result_json = fragment.to_json()
+
+        # Parse and verify the result represents the same schema
+        result = json.loads(result_json)
+
+        assert "" in result
+        assert "User" in result[""]["entityTypes"]
+
+    def test_from_schema_fragments_single(self):
+        """Create Schema from a single SchemaFragment."""
+        fragment_json = json.dumps(
+            {
+                "": {
+                    "entityTypes": {"User": {}, "Document": {}},
+                    "actions": {
+                        "read": {
+                            "appliesTo": {
+                                "principalTypes": ["User"],
+                                "resourceTypes": ["Document"],
+                            }
+                        }
+                    },
+                }
+            }
+        )
+        fragment = SchemaFragment.from_json(fragment_json)
+        schema = Schema.from_schema_fragments([fragment])
+
+        assert has_entity_type(schema, "User")
+        assert has_entity_type(schema, "Document")
+        assert any("read" in a for a in schema.actions())
+
+    def test_from_schema_fragments_multiple(self):
+        """Create Schema from multiple SchemaFragments."""
+        fragment1_json = json.dumps(
+            {
+                "App1": {
+                    "entityTypes": {"User": {}},
+                    "actions": {},
+                }
+            }
+        )
+        fragment2_json = json.dumps(
+            {
+                "App2": {
+                    "entityTypes": {"Document": {}},
+                    "actions": {
+                        "read": {
+                            "appliesTo": {
+                                "principalTypes": ["App1::User"],
+                                "resourceTypes": ["Document"],
+                            }
+                        }
+                    },
+                }
+            }
+        )
+
+        fragment1 = SchemaFragment.from_json(fragment1_json)
+        fragment2 = SchemaFragment.from_json(fragment2_json)
+
+        schema = Schema.from_schema_fragments([fragment1, fragment2])
+
+        # Both fragments should be merged
+        entity_types = [str(t) for t in schema.entity_types()]
+        assert any("User" in t for t in entity_types)
+        assert any("Document" in t for t in entity_types)
+
+    def test_from_schema_fragments_empty_list(self):
+        """Creating Schema from empty fragments list creates empty schema."""
+        schema = Schema.from_schema_fragments([])
+        # Should create a valid but empty schema
+        assert len(schema.entity_types()) == 0
+        assert len(schema.actions()) == 0
+
+    def test_fragment_with_attributes(self):
+        """SchemaFragment with entity attributes."""
+        fragment_json = json.dumps(
+            {
+                "": {
+                    "entityTypes": {
+                        "User": {
+                            "shape": {
+                                "type": "Record",
+                                "attributes": {
+                                    "email": {"type": "String"},
+                                    "age": {"type": "Long"},
+                                },
+                            }
+                        }
+                    },
+                    "actions": {},
+                }
+            }
+        )
+        fragment = SchemaFragment.from_json(fragment_json)
+
+        # Convert to cedarschema and verify attributes are preserved
+        cedar_str = fragment.to_cedarschema()
+        assert "email" in cedar_str
+        assert "age" in cedar_str
+
+    def test_fragment_with_hierarchy(self):
+        """SchemaFragment with entity hierarchy."""
+        fragment_json = json.dumps(
+            {
+                "": {
+                    "entityTypes": {
+                        "UserGroup": {},
+                        "User": {"memberOfTypes": ["UserGroup"]},
+                    },
+                    "actions": {},
+                }
+            }
+        )
+        fragment = SchemaFragment.from_json(fragment_json)
+
+        cedar_str = fragment.to_cedarschema()
+        assert "UserGroup" in cedar_str
+        assert "User" in cedar_str
+        # Verify hierarchy is preserved
+        assert "in" in cedar_str or "memberOf" in cedar_str.lower()
+
+    def test_invalid_json(self):
+        """Invalid JSON raises ValueError."""
+        with pytest.raises(ValueError):
+            SchemaFragment.from_json("not valid json")
+
+    def test_invalid_cedarschema(self):
+        """Invalid Cedar schema syntax raises ValueError."""
+        with pytest.raises(ValueError):
+            SchemaFragment.from_cedarschema("this is not valid cedar schema syntax!!!")
+
+    def test_fragment_to_schema_validation(self):
+        """Schema created from fragment can validate policies."""
+        fragment_json = json.dumps(
+            {
+                "": {
+                    "entityTypes": {"User": {}, "Resource": {}},
+                    "actions": {
+                        "view": {
+                            "appliesTo": {
+                                "principalTypes": ["User"],
+                                "resourceTypes": ["Resource"],
+                            }
+                        }
+                    },
+                }
+            }
+        )
+        fragment = SchemaFragment.from_json(fragment_json)
+        schema = Schema.from_schema_fragments([fragment])
+
+        # Create a simple valid policy
+        from cedar import Policy, PolicySet
+
+        policy = Policy(
+            """
+            permit(
+                principal == User::"alice",
+                action == Action::"view",
+                resource == Resource::"doc1"
+            );
+            """,
+            "test-policy",
+        )
+        policies = PolicySet()
+        policies.add(policy)
+
+        # Validate should succeed
+        result = schema.validate_policyset(policies)
+        assert (
+            result.valid or len(result.errors) == 0
+        )  # Should be valid or have expected errors
