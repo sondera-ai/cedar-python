@@ -523,8 +523,96 @@ class PolicySetIterator:
     def __iter__(self) -> PolicySetIterator: ...
     def __next__(self) -> Policy: ...
 
+class SchemaFragment:
+    """Represents a Cedar schema fragment.
+
+    A schema fragment is a portion of a Cedar schema that can be combined with
+    other fragments to create a complete schema. This is useful for modular
+    schema definitions.
+    """
+
+    @staticmethod
+    def from_json(json: str) -> SchemaFragment:
+        """Create a schema fragment from JSON.
+
+        Args:
+            json: JSON string containing schema fragment
+
+        Returns:
+            SchemaFragment instance
+
+        Raises:
+            ValueError: If JSON is invalid
+        """
+        ...
+
+    @staticmethod
+    def from_cedarschema(text: str) -> SchemaFragment:
+        """Create a schema fragment from Cedar schema syntax.
+
+        Args:
+            text: Cedar schema text
+
+        Returns:
+            SchemaFragment instance
+
+        Raises:
+            ValueError: If schema text is invalid
+        """
+        ...
+
+    def to_json(self) -> str:
+        """Convert to JSON representation.
+
+        Returns:
+            JSON string representation of the schema fragment
+        """
+        ...
+
+    def to_cedarschema(self) -> str:
+        """Convert to Cedar schema syntax.
+
+        Returns:
+            Cedar schema syntax string
+
+        Raises:
+            ValueError: If conversion fails
+        """
+        ...
+
+    def namespaces(self) -> list[str]:
+        """Get the namespaces defined in this schema fragment.
+
+        Returns:
+            List of namespace names (empty string for default namespace)
+        """
+        ...
+
+    def __str__(self) -> str:
+        """Get the schema fragment as Cedar schema syntax string."""
+        ...
+
+    def __repr__(self) -> str:
+        """Get a debug representation of the SchemaFragment."""
+        ...
+
 class Schema:
     """Represents a Cedar schema."""
+
+    @staticmethod
+    def from_schema_fragments(fragments: list[SchemaFragment]) -> Schema:
+        """Create a schema from one or more schema fragments.
+
+        Args:
+            fragments: List of SchemaFragment instances to combine
+
+        Returns:
+            Schema instance
+
+        Raises:
+            ValueError: If fragments cannot be combined or are invalid
+        """
+        ...
 
     @staticmethod
     def from_json(json: str) -> Schema:
@@ -589,6 +677,10 @@ class Schema:
         Returns:
             ValidationResult with validation status, errors, and warnings
         """
+        ...
+
+    def __str__(self) -> str:
+        """Get the schema as Cedar schema syntax string."""
         ...
 
     def __repr__(self) -> str:
@@ -677,6 +769,7 @@ __all__ = [
     "Policy",
     "PolicySet",
     "PolicySetIterator",
+    "SchemaFragment",
     "Schema",
     "ValidationError",
     "ValidationWarning",

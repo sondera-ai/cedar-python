@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel, model_validator
 
+from cedar import Schema, SchemaFragment
+
 
 class SchemaType(BaseModel):
     """
@@ -141,3 +143,9 @@ class CedarSchema(RootModel):
 
     def __getitem__(self, item):
         return self.root[item]
+
+    def into_schema(self) -> Schema:
+        return Schema.from_json(self.model_dump_json(exclude_none=True))
+
+    def into_schema_fragment(self) -> SchemaFragment:
+        return SchemaFragment.from_json(self.model_dump_json(exclude_none=True))
