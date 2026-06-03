@@ -39,7 +39,14 @@ Repository = "https://github.com/sondera-ai/cedar-python"
 Issues = "https://github.com/sondera-ai/cedar-python/issues"
 
 [project.optional-dependencies]
-mcp = ["fastmcp>=2.0,<3"]
+mcp = [
+    "fastmcp>=3.2.0,<3.3",
+    "authlib>=1.6.9,<1.7",
+    "urllib3>=2.7.0,<2.8",
+    "python-multipart>=0.0.27,<0.0.28",
+    "PyJWT>=2.12.0,<2.13",
+    "cryptography>=46.0.5,<46.1",
+]
 
 [project.scripts]
 cedar = "cedar.__main__:cli"
