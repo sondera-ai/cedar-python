@@ -9,7 +9,7 @@ use cedar_policy::{Authorizer, Context, Decision, Entities, PolicySet, Request, 
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
-#[pyclass(name = "Context")]
+#[pyclass(name = "Context", from_py_object)]
 #[derive(Clone)]
 pub struct PyContext {
     pub(crate) inner: Context,

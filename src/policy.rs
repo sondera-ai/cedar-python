@@ -494,7 +494,7 @@ impl PySchema {
 }
 
 /// Represents a validation error from Cedar's validator
-#[pyclass(name = "ValidationError", frozen)]
+#[pyclass(name = "ValidationError", frozen, from_py_object)]
 #[derive(Clone)]
 pub struct PyValidationError {
     policy_id: String,
@@ -528,7 +528,7 @@ impl PyValidationError {
 }
 
 /// Represents a validation warning from Cedar's validator
-#[pyclass(name = "ValidationWarning", frozen)]
+#[pyclass(name = "ValidationWarning", frozen, from_py_object)]
 #[derive(Clone)]
 pub struct PyValidationWarning {
     policy_id: String,
@@ -562,7 +562,7 @@ impl PyValidationWarning {
 }
 
 /// Represents the result of policy validation against a schema
-#[pyclass(name = "ValidationResult", frozen)]
+#[pyclass(name = "ValidationResult", frozen, from_py_object)]
 #[derive(Clone)]
 pub struct PyValidationResult {
     valid: bool,
