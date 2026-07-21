@@ -5,7 +5,7 @@ use cedar_policy::{Entity, EntityId, EntityTypeName, EntityUid, RestrictedExpres
 use pyo3::types::{PyDict, PyList, PyType};
 use std::collections::{HashMap, HashSet};
 
-#[pyclass(name = "EntityType", frozen, eq, hash)]
+#[pyclass(name = "EntityType", frozen, eq, hash, from_py_object)]
 #[derive(Clone, PartialEq, Hash)]
 pub struct PyEntityType {
     pub(crate) inner: EntityTypeName,
@@ -92,7 +92,7 @@ impl PyEntity {
     }
 }
 
-#[pyclass(name = "EntityUid", frozen, eq, hash)]
+#[pyclass(name = "EntityUid", frozen, eq, hash, from_py_object)]
 #[derive(Clone, PartialEq, Hash)]
 pub struct PyEntityUid {
     pub(crate) inner: EntityUid,
